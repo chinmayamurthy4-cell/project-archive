@@ -1,0 +1,51 @@
+## Read the billing dataset
+billing = pd.read_csv('billing.csv', sep='#')
+
+##Remaning the columns
+month_map = {'Janvier': 'January', 'Février': 'February', 'Mars': 'March', 'Avril': 'April', 'Mai': 'May', 'Juin': 'June', 'Juillet': 'July', 'Août': 'August', 'Septembre': 'September', 'Octobre': 'October', 'Novembre': 'November', 'Décembre': 'December'}
+billing['Month'] = billing['mois'].map(month_map)
+billing.rename(columns={
+    'identifiant_abonne': 'Customer_ID',
+    'Montant facturé': 'Amount_billed'
+}, inplace=True)
+
+## drop the mois column
+billing = billing.drop(columns=['mois'])
+
+## Rearranging the columns
+new_column_order = ['Customer_ID','Month', 'Amount_billed'] ##rearranging the columns
+billing = billing[new_column_order]
+
+## Pivot the dataset
+billing_pivot = billing.pivot_table(index="Customer_ID", columns="Month", values="Amount_billed", aggfunc="sum").reset_index()
+
+## Defining Months in chronological order
+month_order = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+
+## Ensuring months are in chronological order
+billing_pivot = billing_pivot[["Customer_ID"] + month_order]
+
+## Function to treat the missing values
+def custom_fillna(usage_data):
+    def process_row(row):
+        ## Flag to check if we've encountered a valid number
+        found_value = False
+        ## This will help to skip the column 'Customer_ID'
+        for col in usage_data.columns[1:]:
+            ## If the value is missing
+            if pd.isna(row[col]):
+                if not found_value:
+                    row[col] = np.nan  ## If blanks are at the start keep them as NaN
+                else:
+                    row[col] = 0  ## If blanks are in between then fill it with 0
+            else:
+                found_value = True  ## if the first valid number is found, so future blanks get 0
+        return row
+
+    return usage_data.apply(process_row, axis=1)
+
+# Apply missing value treatment to both DataFrames
+billing_pivot = custom_fillna(billing_pivot)
+
+## Print the result
+billing_pivot
